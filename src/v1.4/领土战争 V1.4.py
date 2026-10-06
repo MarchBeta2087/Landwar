@@ -1,0 +1,143 @@
+import pygame,math,random,time
+print("默认设定：棋盘范围20*20，四个国家，炮台位置：第一国[4,4]，第二国[4,15]，第三国[15,4]，第四国[15,15]")
+default=""
+while True:
+    default=input("使用默认设定)？（Y是（使用默认设定），N否（使用自定义设定.txt中的设定）），注意必须大写")
+    if default=="Y":
+        xScale=20 #棋盘横向长度
+        yScale=20 #棋盘纵向长度
+        blocksize=12 #棋盘格子大小
+        shamo=1
+        steps=1
+        grayrate=0.3 #生成灰弹概率
+        towerremoving=True #占领炮台后是否移除炮台
+        colors=[pygame.Color(255,0,0),pygame.Color(0,255,0),pygame.Color(0,0,255),pygame.Color(255,255,0)] #各国领土颜色
+        towers=[[[4,4]],[[4,15]],[[15,4]],[[15,15]]] #各国炮台位置
+        break
+    elif default=="N":
+        file=open("自定义设定.txt","r")
+        lines=file.readlines()
+        xScale=int(lines[0])
+        yScale=int(lines[1])
+        blocksize=int(lines[2])
+        countries=int(lines[3])
+        shamo=int(lines[4])
+        steps=int(lines[5])
+        grayrate=float(lines[6])
+        towerremoving=eval(lines[7])
+        colors=[]
+        towers=[]
+        for g in range(countries):
+            colors.append(eval(lines[g+8]))
+            towers.append(eval(lines[g+countries+8]))
+        break
+    else:
+        continue
+center=[xScale//2,yScale//2]
+map2d=[[-1 for i in range(xScale)] for j in range(yScale)]
+shells=[] #黑弹
+gray_shells=[] #灰弹
+pygame.init()
+screen=pygame.display.set_mode([min(1920,max(640,xScale*blocksize)),min(1920,max(640,yScale*blocksize))])
+def throw_shells():
+    for k in range(len(towers)):
+        for l in towers[k]:
+            proba=random.random()
+            if proba>=grayrate: #生成黑弹
+                shells.append([l[0],l[1],k,1*math.cos(20*random.random()*math.pi),1*math.sin(20*random.random()*math.pi)])
+            else: #生成灰弹
+                gray_shells.append([l[0],l[1],k,1*math.cos(20*random.random()*math.pi),1*math.sin(20*random.random()*math.pi)])
+def changeblock(m): #黑弹
+    if m[2]!=map2d[min(xScale-1,max(0,math.floor(m[0])))][min(yScale-1,max(0,math.floor(m[1])))]:
+        for q in towers:
+            for r in q:
+                if [min(xScale-1,max(0,math.floor(m[0]))),min(yScale-1,max(0,math.floor(m[1])))]==r and map2d[math.floor(m[0])][math.floor(m[1])]>=0:
+                    if towerremoving==False: #towerremoving为False时炮台所属国家变更，towerremoving为True时直接移除炮台
+                        newplace=r
+                        q.remove(r)
+                        towers[m[2]].append(newplace)
+                    else:
+                        q.remove(r)
+        map2d[min(xScale-1,max(0,math.floor(m[0])))][min(yScale-1,max(0,math.floor(m[1])))]=m[2]
+        shells.remove(m) #黑弹移除
+def gray_changeblock(m): #灰弹
+    if m[2]!=map2d[min(xScale-1,max(0,math.floor(m[0])))][min(yScale-1,max(0,math.floor(m[1])))]:
+        for q in towers:
+            for r in q:
+                if [min(xScale-1,max(0,math.floor(m[0]))),min(yScale-1,max(0,math.floor(m[1])))]==r and map2d[math.floor(m[0])][math.floor(m[1])]>=0:
+                    if towerremoving==False:
+                        newplace=r
+                        q.remove(r)
+                        towers[m[2]].append(newplace)
+                    else:
+                        q.remove(r)
+        map2d[min(xScale-1,max(0,math.floor(m[0])))][min(yScale-1,max(0,math.floor(m[1])))]=m[2]
+        shells.append(m)
+        gray_shells.remove(m) #灰弹变黑弹
+def shells_move(): #黑弹移动
+    for n in shells:
+        n[0]+=n[3]
+        n[1]+=n[4]
+        if n[0]<0: #遇墙反弹
+            n[3]=-n[3]
+        elif n[0]>=xScale-1:
+            n[3]=-n[3]
+        if n[1]<0:
+            n[4]=-n[4]
+        elif n[1]>=yScale-1:
+            n[4]=-n[4]
+        changeblock(n)
+def gray_shells_move(): #灰弹移动
+    for n in gray_shells:
+        n[0]+=n[3]
+        n[1]+=n[4]
+        if n[0]<0: #遇墙反弹
+            n[3]=-n[3]
+        elif n[0]>=xScale-1:
+            n[3]=-n[3]
+        if n[1]<0:
+            n[4]=-n[4]
+        elif n[1]>=yScale-1:
+            n[4]=-n[4]
+        gray_changeblock(n)
+while True:
+    timea=time.time()
+    for event in pygame.event.get():
+        if event.type==pygame.QUIT:
+            exit()
+        elif event.type==pygame.MOUSEBUTTONDOWN: #棋盘放缩
+            if event.button==1:
+                blocksize+=1
+            elif event.button==3:
+                blocksize=max(blocksize-1,1)
+        elif event.type==pygame.KEYDOWN: #视角移动
+            if event.key==pygame.K_UP:
+                center[1]-=1
+            elif event.key==pygame.K_LEFT:
+                center[0]-=1
+            elif event.key==pygame.K_DOWN:
+                center[1]+=1
+            elif event.key==pygame.K_RIGHT:
+                center[0]+=1
+    screen.fill(pygame.Color(127,127,127))
+    for t in range(xScale):
+        for u in range(yScale):
+            if map2d[t][u]<0:
+                pygame.draw.rect(screen,pygame.Color(0,0,0),[pygame.display.get_surface().get_width()//2+blocksize*(t-center[0]),pygame.display.get_surface().get_height()//2+blocksize*(u-center[1]),blocksize,blocksize],0) #无主之地为黑色
+            else:
+                pygame.draw.rect(screen,colors[map2d[t][u]],[pygame.display.get_surface().get_width()//2+blocksize*(t-center[0]),pygame.display.get_surface().get_height()//2+blocksize*(u-center[1]),blocksize,blocksize],0)
+    for h in towers:
+        for h1 in h:
+            pygame.draw.rect(screen,pygame.Color(127,127,127),[pygame.display.get_surface().get_width()//2+blocksize*(h1[0]-center[0]),pygame.display.get_surface().get_height()//2+blocksize*(h1[1]-center[1]),blocksize,blocksize],1) #灰色方框表示炮台
+    for v1 in shells: #黑弹
+        pygame.draw.circle(screen,pygame.Color(0,0,0),[pygame.display.get_surface().get_width()//2+math.floor(blocksize*(v1[0]-center[0])),pygame.display.get_surface().get_height()//2+math.floor(blocksize*(v1[1]-center[1]))],2,0)
+    for v2 in gray_shells: #灰弹
+        pygame.draw.circle(screen,pygame.Color(127,127,127),[pygame.display.get_surface().get_width()//2+math.floor(blocksize*(v2[0]-center[0])),pygame.display.get_surface().get_height()//2+math.floor(blocksize*(v2[1]-center[1]))],2,0)
+    for w in range(shamo):
+        throw_shells()
+    for z in range(steps):
+        shells_move()
+        gray_shells_move()
+    pygame.display.flip()
+    timeb=time.time()
+    pygame.display.set_caption("领土战争 V1.4: "+str(1/(timeb-timea))+" FPS")
